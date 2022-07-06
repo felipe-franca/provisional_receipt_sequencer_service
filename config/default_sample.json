@@ -1,0 +1,11 @@
+{
+    "database": {
+        "config": {
+            "port": "",
+            "db_user": "",
+            "database": [
+                {"db_name": "" , "password": "", "db_host": "", "provisional_receipt_cnpj": [], "garage": ""}
+            ]
+        }
+    }
+}
