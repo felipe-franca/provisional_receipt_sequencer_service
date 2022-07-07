@@ -1,11 +1,18 @@
 {
     "database": {
         "config": {
-            "port": "",
-            "db_user": "",
-            "database": [
-                {"db_name": "" , "password": "", "db_host": "", "provisional_receipt_cnpj": [], "garage": ""}
+            "port": "database-port",
+            "db_user": "database-user",
+            "databases": [
+                {
+                    "name": "database-name" ,
+                    "password": "database-password",
+                    "host": "database-host",
+                    "cnpj": ["cnpj-1", "cnpj-2"],
+                    "garage": 1
+                }
             ]
         }
-    }
+    },
+    "schedule": "0 00 00 * * *"
 }
