@@ -8,8 +8,9 @@
                     "name": "database-name" ,
                     "password": "database-password",
                     "host": "database-host",
-                    "cnpj": ["cnpj-1", "cnpj-2"],
-                    "garage": 1
+                    "cnpj": [],
+                    "garage": 1,
+                    "previousDays": 0
                 }
             ]
         }
