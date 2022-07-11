@@ -13,41 +13,35 @@ async function rpsSequencer() {
             host: database.host,
             database: database.name,
             password: database.password,
-            port: port
+            port: port,
         });
 
         let { cnpj, garage, previousDays } = database;
 
-        if (!previousDays)
-            previousDays = 1;
+        if (!previousDays) previousDays = 1;
 
         try {
             await db.connect();
 
-            const series = await getSeries(db, (previousDays+1), garage);
+            const series = await getSeries(db, previousDays, garage);
 
             cnpj.forEach(async (cnpjNumber) => {
-                series.forEach(async (obj, previousDays) => {
-
+                series.forEach(async (obj) => {
                     let needRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
-
-                    console.log(`Serie ${obj.serie} need repair` , needRepair);
+                    
                     if (needRepair) {
-                        for(let attempts = 0; attempts < 3; attempts++ ) {
+                        for (let attempts = 0; attempts < 3; attempts++) {
                             const result = await updateRps(db, obj, cnpjNumber, garage, previousDays);
-                            console.log(`Serie ${obj.serie} corrigida ==>`, result.command);
 
                             let stillNeedRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
-                            console.log(`Serie ${obj.serie} still need repair`, stillNeedRepair);
-                            if (!stillNeedRepair)
-                                attempts = 4;
+
+                            if (!stillNeedRepair) attempts = 4;
                         }
                     }
                 });
             });
-
-        } catch(err) {
-            console.log(err)
+        } catch (err) {
+            console.log(err);
             db.end();
         }
     });
@@ -58,17 +52,19 @@ async function rpsSequencer() {
 async function getSeries(db, previousDays, garage) {
     try {
         const result = await db.query(
-            'SELECT '
-            + 'DISTINCT serierps AS serie, '
-            + 'MAX(numerorps) AS rps '
-            + 'FROM recibo_provisorio_servicos '
-            + "WHERE data = current_date - $1::interval "
-            + 'AND garagem = $2 '
-            + 'GROUP BY serie '
-            + 'ORDER BY serie', [`${previousDays}d`, garage]);
+            'SELECT ' +
+                'DISTINCT serierps AS serie, ' +
+                'MAX(numerorps) AS rps ' +
+                'FROM recibo_provisorio_servicos ' +
+                'WHERE data = (current_date - $1::interval) ' +
+                'AND garagem = $2 ' +
+                'GROUP BY serie ' +
+                'ORDER BY serie',
+            [`${previousDays+1}d`, garage]
+        );
 
         return result.rows;
-    } catch(err) {
+    } catch (err) {
         console.log(err);
     }
 }
@@ -76,28 +72,24 @@ async function getSeries(db, previousDays, garage) {
 async function testRps(db, rpsObject, cnpj, garage, previousDays) {
     try {
         const result = await db.query(
-            'SELECT '
-            + '( numerorps - $1 ) AS seq, '
-            + 'numerorps, serierps '
-            + 'FROM recibo_provisorio_servicos '
-            + "WHERE data = (current_date - $2::interval) "
-            + 'AND garagem = $3 '
-            + 'AND serierps = $4 '
-            + 'AND cnpj_pagamento = $5::text '
-            + 'ORDER BY numerorps ASC',
-            [rpsObject.rps, `${previousDays}d`, garage, rpsObject.serie, cnpj]);
+            'SELECT ' +
+                '( numerorps - $1 ) AS seq, ' +
+                'numerorps, serierps ' +
+                'FROM recibo_provisorio_servicos ' +
+                'WHERE data >= (current_date - $2::interval) ' +
+                'AND garagem = $3 ' +
+                'AND serierps = $4 ' +
+                'AND cnpj_pagamento = $5::text ' +
+                'ORDER BY numerorps ASC',
+            [rpsObject.rps, `${previousDays}d`, garage, rpsObject.serie, cnpj]
+        );
 
-        console.log(`Iniciando serie ${rpsObject.serie} para o cnpj ${cnpj}`);
-
-        if (result.rows.length < 1)
-            return false;
+        if (result.rows.length < 1) return false;
 
         let sequences = result.rows;
-        console.log(result.rows);
-        console.log(sequences[sequences.length - 1].seq, sequences.length);
 
-        return  !(sequences[sequences.length - 1].seq == sequences.length);
-    } catch(err) {
+        return !(sequences[sequences.length - 1].seq == sequences.length);
+    } catch (err) {
         console.log(err);
     }
 }
@@ -105,23 +97,24 @@ async function testRps(db, rpsObject, cnpj, garage, previousDays) {
 async function updateRps(db, rpsObject, cnpj, garage, previousDays) {
     try {
         const result = await db.query(
-            'UPDATE '
-            + 'recibo_provisorio_servicos '
-            + 'SET numerorps = ( SELECT COUNT(1) + $1 '
-                + 'FROM recibo_provisorio_servicos rps '
-                + 'WHERE rps.id <= recibo_provisorio_servicos.id '
-                + "AND rps.data >= ( current_date - $2::interval ) "
-                + 'AND serierps = $3 '
-                + 'AND garagem = $4 '
-                + 'AND cnpj_pagamento = $5::text ) '
-            + 'WHERE data >= (current_date - $2::interval) '
-            + 'AND serierps = $3 '
-            + 'AND garagem = $4 '
-            + 'AND cnpj_pagamento = $5::text',
-            [rpsObject.rps, `${previousDays}d`, rpsObject.serie, garage, cnpj]);
+            'UPDATE ' +
+                'recibo_provisorio_servicos ' +
+                'SET numerorps = ( SELECT COUNT(1) + $1 ' +
+                    'FROM recibo_provisorio_servicos rps ' +
+                    'WHERE rps.id <= recibo_provisorio_servicos.id ' +
+                    'AND rps.data >= ( current_date - $2::interval ) ' +
+                    'AND serierps = $3 ' +
+                    'AND garagem = $4 ' +
+                    'AND cnpj_pagamento = $5::text ) ' +
+                'WHERE data >= (current_date - $2::interval ) ' +
+                'AND serierps = $3 ' +
+                'AND garagem = $4 ' +
+                'AND cnpj_pagamento = $5::text',
+            [rpsObject.rps, `${previousDays}d`, rpsObject.serie, garage, cnpj]
+        );
 
         return result;
-    } catch(err) {
+    } catch (err) {
         console.log(err);
     }
 }
