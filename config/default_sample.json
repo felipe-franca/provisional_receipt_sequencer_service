@@ -15,5 +15,9 @@
             ]
         }
     },
-    "schedule": "0 00 00 * * *"
+    "schedule": "0 00 00 * * *",
+    "logger": {
+        "enabled": "false",
+        "level": "info"
+    }
 }

@@ -1,8 +1,13 @@
 const config = require('config');
 const cron = require('node-cron');
 const { Client } = require('pg');
+const logger = require('./logger');
+
+logger.info('Aplicação inicializada...');
 
 async function rpsSequencer() {
+    logger.info('Nova rotina inicializada !');
+
     const databaseConfig = await config.get('database.config');
     const port = databaseConfig.port;
     const dbUser = databaseConfig.db_user;
@@ -28,7 +33,7 @@ async function rpsSequencer() {
             cnpj.forEach(async (cnpjNumber) => {
                 series.forEach(async (obj) => {
                     let needRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
-                    
+
                     if (needRepair) {
                         for (let attempts = 0; attempts < 3; attempts++) {
                             const result = await updateRps(db, obj, cnpjNumber, garage, previousDays);
