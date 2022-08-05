@@ -156,4 +156,4 @@ async function updateRps(db, rpsObject, cnpj, garage, previousDays) {
     }
 }
 
-cron.schedule(config.get('schedule'), () => await rpsSequencer());
+cron.schedule(config.get('schedule'), async () => await rpsSequencer());
