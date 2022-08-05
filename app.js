@@ -128,7 +128,7 @@ async function rpsSequencer() {
 
         return !(sequences[sequences.length - 1].seq == sequences.length);
     } catch (err) {
-        logger.erro(err.message);
+        logger.error(err.message);
     }
 }
 
