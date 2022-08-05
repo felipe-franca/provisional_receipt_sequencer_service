@@ -48,23 +48,26 @@ async function rpsSequencer() {
             cnpj.forEach(async (cnpjNumber) => {
                 logger.info(`Iniciando validações do cnpj ${cnpjNumber}`);
                  series.forEach(async (obj) => {
-                    logger.info(`Teste para serie ${obj.serie} para o cnpj ${cnpjNumber}...`);
 
                     let needRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
 
+                    logger.info(`Teste para serie ${obj.serie} para o cnpj ${cnpjNumber}...`);
                     logger.info(`Necessita de readjuste?: ${needRepair} >> ${obj.serie}, ${obj.numerorps}, ${cnpjNumber}`);
+
+                    if (!needRepair) {
+                        logger.info(`Nada a efetuar para serie ${obj.serie}`);
+                        return;
+                    }
 
                     if (needRepair) {
                         for (let attempts = 0; attempts < 3; attempts++) {
                             logger.info(`Tentativa de rajuste ${attempts + 1}} de 3 para serie ${obj.serie}, ${obj.numerorps}`);
 
                             const result = await updateRps(db, obj, cnpjNumber, garage, previousDays);
-
-                            logger.debug(`Retorno do update ${jsonPrettyPrint(result)}`);
-
-                            logger.info('Verificando se ainda precisa de reajuste...');
+                            logger.debug(`Retorno do update: ${result.command} ${result.rowsCount} linhas para serie ${obj.serie}`);
 
                             let stillNeedRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
+                            logger.info(`Verificando se a serie ${obj.serie} ainda precisa de reajuste...`);
 
                             logger.info(`Precisa de reajuste ?: ${stillNeedRepair}}`);
                             logger.info('Sera efetuado uma nova tentativa...');
@@ -81,8 +84,6 @@ async function rpsSequencer() {
         }
     });
 
-    logger.info('Execução finalizada.');
-    logger.info('Fechando conexão com banco');
     db.end();
 }
 
@@ -156,4 +157,4 @@ async function updateRps(db, rpsObject, cnpj, garage, previousDays) {
     }
 }
 
-cron.schedule(config.get('schedule'), async () => await rpsSequencer());
+cron.schedule(config.get('schedule'), () => rpsSequencer());
