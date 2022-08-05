@@ -8,7 +8,7 @@ module.exports = pino({
         target: 'pino-pretty',
         options: {
             translateTime: 'yyyy-dd-mm, H:MM:ss TT',
-            destination: `logs/${new Date().toISOString()}.log`,
+            destination: `logs/${new Date().toISOString().substring(0, 10)}.log`,
             mkdir: true,
             colorize: false,
         },
