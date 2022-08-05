@@ -45,9 +45,9 @@ async function rpsSequencer() {
 
             logger.debug(`Series a serem avaliadas : ${jsonPrettyPrint(series)}`);
 
-             cnpj.forEach((cnpjNumber) => {
+            await cnpj.forEach(async (cnpjNumber) => {
                 logger.info(`Iniciando validações do cnpj ${cnpjNumber}`);
-                 series.forEach(async (obj) => {
+                 await series.forEach(async (obj) => {
                     logger.info(`Teste para serie ${obj.serie} para o cnpj ${cnpjNumber}...`);
 
                     let needRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
