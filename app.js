@@ -45,9 +45,9 @@ async function rpsSequencer() {
 
             logger.debug(`Series a serem avaliadas : ${jsonPrettyPrint(series)}`);
 
-            async () => await cnpj.forEach(async (cnpjNumber) => {
+            cnpj.forEach(async (cnpjNumber) => {
                 logger.info(`Iniciando validações do cnpj ${cnpjNumber}`);
-                 async () => await series.forEach(async (obj) => {
+                 series.forEach(async (obj) => {
                     logger.info(`Teste para serie ${obj.serie} para o cnpj ${cnpjNumber}...`);
 
                     let needRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
@@ -80,6 +80,10 @@ async function rpsSequencer() {
             db.end();
         }
     });
+
+    logger.info('Execução finalizada.');
+    logger.info('Fechando conexão com banco');
+    db.end();
 }
 
  async function getSeries(db, previousDays, garage) {
@@ -152,4 +156,4 @@ async function updateRps(db, rpsObject, cnpj, garage, previousDays) {
     }
 }
 
-cron.schedule(config.get('schedule'), () => rpsSequencer());
+cron.schedule(config.get('schedule'), () => await rpsSequencer());
