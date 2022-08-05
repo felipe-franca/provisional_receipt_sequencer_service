@@ -2,43 +2,72 @@ const config = require('config');
 const cron = require('node-cron');
 const { Client } = require('pg');
 const logger = require('./logger');
+const { jsonPrettyPrint } = require('./utils');
 
 logger.info('Aplicação inicializada...');
 
 async function rpsSequencer() {
-    logger.info('Nova rotina inicializada !');
+    logger.info('Nova rotina inicializada...');
 
-    const databaseConfig = await config.get('database.config');
+    const databaseConfig =  config.get('database.config');
+
+    logger.debug(`Configurações da base de dados ${jsonPrettyPrint(databaseConfig)}`);
+
     const port = databaseConfig.port;
     const dbUser = databaseConfig.db_user;
 
     databaseConfig.databases.forEach(async (database) => {
         const db = new Client({
-            user: dbUser,
-            host: database.host,
-            database: database.name,
-            password: database.password,
-            port: port,
+            user     : dbUser,
+            host     : database.host,
+            database : database.name,
+            password : database.password,
+            port     : port,
         });
 
         let { cnpj, garage, previousDays } = database;
 
         if (!previousDays) previousDays = 1;
 
+        logger.info(`Dias retrocedidos para verificação: ${previousDays}`);
+
         try {
             await db.connect();
 
+            logger.info("Buscando series a serem avaliadas...");
+
             const series = await getSeries(db, previousDays, garage);
 
-            cnpj.forEach(async (cnpjNumber) => {
-                series.forEach(async (obj) => {
-                    let needRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
+            if (series.length < 1) {
+                logger.info('Nenhuma operação a ser realizada....');
+                return;
+            }
+
+            logger.debug(`Series a serem avaliadas : ${jsonPrettyPrint(series)}`);
+
+             cnpj.forEach( (cnpjNumber) => {
+                logger.info(`Iniciando validações do cnpj ${cnpjNumber}`);
+                 series.forEach( (obj) => {
+                    logger.info(`Teste para serie ${obj.serie} para o cnpj ${cnpjNumber}...`);
+
+                    let needRepair =  testRps(db, obj, cnpjNumber, garage, previousDays);
+
+                    logger.info(`Necessita de readjuste?: ${needRepair} >> ${obj.serie}, ${obj.numerorps}, ${cnpjNumber}`);
 
                     if (needRepair) {
                         for (let attempts = 0; attempts < 3; attempts++) {
-                            const result = await updateRps(db, obj, cnpjNumber, garage, previousDays);
+                            logger.info(`Tentativa de rajuste ${attempts + 1}} de 3 para serie ${obj.serie}, ${obj.numerorps}`);
 
-                            let stillNeedRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
+                            const result =  updateRps(db, obj, cnpjNumber, garage, previousDays);
+
+                            logger.debug(`Retorno do update ${jsonPrettyPrint(result)}`);
+
+                            logger.info('Verificando se ainda precisa de reajuste...');
+
+                            let stillNeedRepair =  testRps(db, obj, cnpjNumber, garage, previousDays);
+
+                            logger.info(`Precisa de reajuste ?: ${stillNeedRepair}}`);
+                            logger.info('Sera efetuado uma nova tentativa...');
 
                             if (!stillNeedRepair) attempts = 4;
                         }
@@ -46,20 +75,24 @@ async function rpsSequencer() {
                 });
             });
         } catch (err) {
-            console.log(err);
+            logger.fatal('Erro fatal...');
+            logger.fatal(err.message);
             db.end();
         }
     });
 
+    logger.info('Fechando conexao com banco de dados.');
+    logger.info('Execução finalizada.');
+
     db.end();
 }
 
-async function getSeries(db, previousDays, garage) {
+ async function getSeries(db, previousDays, garage) {
     try {
         const result = await db.query(
             'SELECT ' +
                 'DISTINCT serierps AS serie, ' +
-                'MAX(numerorps) AS rps ' +
+                'MAX(numerorps) AS numerorps ' +
                 'FROM recibo_provisorio_servicos ' +
                 'WHERE data = (current_date - $1::interval) ' +
                 'AND garagem = $2 ' +
@@ -70,11 +103,11 @@ async function getSeries(db, previousDays, garage) {
 
         return result.rows;
     } catch (err) {
-        console.log(err);
+        logger.error(`Erro ao recuperar series: ${err.message}`);
     }
 }
 
-async function testRps(db, rpsObject, cnpj, garage, previousDays) {
+ async function testRps(db, rpsObject, cnpj, garage, previousDays) {
     try {
         const result = await db.query(
             'SELECT ' +
@@ -86,7 +119,7 @@ async function testRps(db, rpsObject, cnpj, garage, previousDays) {
                 'AND serierps = $4 ' +
                 'AND cnpj_pagamento = $5::text ' +
                 'ORDER BY numerorps ASC',
-            [rpsObject.rps, `${previousDays}d`, garage, rpsObject.serie, cnpj]
+            [rpsObject.numerorps, `${previousDays}d`, garage, rpsObject.serie, cnpj]
         );
 
         if (result.rows.length < 1) return false;
@@ -95,7 +128,7 @@ async function testRps(db, rpsObject, cnpj, garage, previousDays) {
 
         return !(sequences[sequences.length - 1].seq == sequences.length);
     } catch (err) {
-        console.log(err);
+        logger.erro(err.message);
     }
 }
 
@@ -115,12 +148,12 @@ async function updateRps(db, rpsObject, cnpj, garage, previousDays) {
                 'AND serierps = $3 ' +
                 'AND garagem = $4 ' +
                 'AND cnpj_pagamento = $5::text',
-            [rpsObject.rps, `${previousDays}d`, rpsObject.serie, garage, cnpj]
+            [rpsObject.numerorps, `${previousDays}d`, rpsObject.serie, garage, cnpj]
         );
 
         return result;
     } catch (err) {
-        console.log(err);
+        logger.error(err.message);
     }
 }
 
