@@ -80,10 +80,6 @@ async function rpsSequencer() {
             db.end();
         }
     });
-
-    db.end();
-    logger.info('Fechando conexao com banco de dados.');
-    logger.info('Execução finalizada.');
 }
 
  async function getSeries(db, previousDays, garage) {
