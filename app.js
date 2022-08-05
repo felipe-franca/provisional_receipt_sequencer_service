@@ -45,9 +45,9 @@ async function rpsSequencer() {
 
             logger.debug(`Series a serem avaliadas : ${jsonPrettyPrint(series)}`);
 
-            await cnpj.forEach(async (cnpjNumber) => {
+            async () => await cnpj.forEach(async (cnpjNumber) => {
                 logger.info(`Iniciando validações do cnpj ${cnpjNumber}`);
-                 await series.forEach(async (obj) => {
+                 async () => await series.forEach(async (obj) => {
                     logger.info(`Teste para serie ${obj.serie} para o cnpj ${cnpjNumber}...`);
 
                     let needRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
@@ -74,17 +74,16 @@ async function rpsSequencer() {
                     }
                 });
             });
-
-            logger.info('Fechando conexao com banco de dados.');
-            logger.info('Execução finalizada.');
-
-            db.end();
         } catch (err) {
             logger.fatal('Erro fatal...');
             logger.fatal(err.message);
             db.end();
         }
     });
+
+    db.end();
+    logger.info('Fechando conexao com banco de dados.');
+    logger.info('Execução finalizada.');
 }
 
  async function getSeries(db, previousDays, garage) {
