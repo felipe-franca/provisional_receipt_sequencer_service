@@ -45,12 +45,12 @@ async function rpsSequencer() {
 
             logger.debug(`Series a serem avaliadas : ${jsonPrettyPrint(series)}`);
 
-             cnpj.forEach( (cnpjNumber) => {
+             cnpj.forEach((cnpjNumber) => {
                 logger.info(`Iniciando validações do cnpj ${cnpjNumber}`);
-                 series.forEach( (obj) => {
+                 series.forEach((obj) => {
                     logger.info(`Teste para serie ${obj.serie} para o cnpj ${cnpjNumber}...`);
 
-                    let needRepair =  testRps(db, obj, cnpjNumber, garage, previousDays);
+                    let needRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
 
                     logger.info(`Necessita de readjuste?: ${needRepair} >> ${obj.serie}, ${obj.numerorps}, ${cnpjNumber}`);
 
@@ -58,13 +58,13 @@ async function rpsSequencer() {
                         for (let attempts = 0; attempts < 3; attempts++) {
                             logger.info(`Tentativa de rajuste ${attempts + 1}} de 3 para serie ${obj.serie}, ${obj.numerorps}`);
 
-                            const result =  updateRps(db, obj, cnpjNumber, garage, previousDays);
+                            const result = await updateRps(db, obj, cnpjNumber, garage, previousDays);
 
                             logger.debug(`Retorno do update ${jsonPrettyPrint(result)}`);
 
                             logger.info('Verificando se ainda precisa de reajuste...');
 
-                            let stillNeedRepair =  testRps(db, obj, cnpjNumber, garage, previousDays);
+                            let stillNeedRepair = await testRps(db, obj, cnpjNumber, garage, previousDays);
 
                             logger.info(`Precisa de reajuste ?: ${stillNeedRepair}}`);
                             logger.info('Sera efetuado uma nova tentativa...');
@@ -74,17 +74,17 @@ async function rpsSequencer() {
                     }
                 });
             });
+
+            logger.info('Fechando conexao com banco de dados.');
+            logger.info('Execução finalizada.');
+
+            db.end();
         } catch (err) {
             logger.fatal('Erro fatal...');
             logger.fatal(err.message);
             db.end();
         }
     });
-
-    logger.info('Fechando conexao com banco de dados.');
-    logger.info('Execução finalizada.');
-
-    db.end();
 }
 
  async function getSeries(db, previousDays, garage) {
